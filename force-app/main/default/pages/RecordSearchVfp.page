@@ -1,0 +1,101 @@
+<apex:page Controller="RecordSearchCtrl">
+    <style type="text/css">
+        * {
+            box-sizing: border-box;
+        }
+
+        .tableClass {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+            border: 2px solid silver;
+        }
+
+        .theHead {
+            background-color: teal;
+        }
+
+        .even {
+            background-color: silver;
+        }
+    </style>
+
+    <script type="text/javascript">
+        function increaseCounter(recordId, recordType) {
+            Visualforce.remoting.Manager.invokeAction(
+                '{!$RemoteAction.RecordSearchCtrl.increaseCounter}', recordId, recordType,
+                function (result, event) {
+                    console.log('@@@ result= ', result);
+                    console.log('@@@ event= ', event);
+                    if (event.status) {
+                        rerenderResultSearch();
+                    }
+                },
+                { escape: true }
+            );
+        }
+    </script>
+
+    <apex:form>
+        <apex:pageBlock mode="edit" id="block">
+            <apex:outputPanel>
+                <apex:outputLabel for="searchText">Search Text</apex:outputLabel>
+                <apex:panelGroup>
+                    <apex:inputText id="searchText" value="{!searchText}" />
+                    <apex:commandButton value="Search" action="{!search}" status="pageStatus" rerender="errors, results" />
+                </apex:panelGroup>
+            </apex:outputPanel>
+
+            <apex:pageMessages id="errors"></apex:pageMessages>
+
+            <apex:actionStatus id="pageStatus">
+                <apex:facet name="start">
+                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.25; z-index: 1000; background-color: black;">
+                        &nbsp;
+                    </div>
+                    <div style="position: fixed; left: 0; top: 0; bottom: 0; right: 0; z-index: 1001; margin: 15% 50%">
+                        <div style="display: inline-block; padding: 2px; background-color: #fff; width: 125px;">
+                            <img src="/img/loading.gif" style="float: left; margin: 8px;" />
+                            <span style="display: inline-block; padding: 10px 0px;">Please Wait...</span>
+                        </div>
+                    </div>
+                </apex:facet>
+            </apex:actionStatus>
+
+            <apex:outputPanel title="Results" id="results">
+                <apex:actionFunction action="{!search}" name="rerenderResultSearch" rerender="results" />
+                <apex:outputPanel rendered="{! results.size > 0 }">
+                    <apex:dataTable value="{!results}" var="result" headerClass="theHead" cellpadding="10px" rowClasses="odd,even" styleClass="tableClass">
+                        <apex:column value="{!result.recordName}" headerValue="Record Name" />
+                        <apex:column value="{!result.recordType}" headerValue="Record Type" />
+                        <apex:column value="{!result.recordCounter}" headerValue="Counter" />
+                        <apex:column headerValue="Click To Open">
+                            <apex:outputLink value="{! '/' + result.recordId }" target="_blank">View</apex:outputLink>
+                        </apex:column>
+                        <apex:column headerValue="Click To Update Counter">
+                            <apex:commandLink onclick="increaseCounter('{! result.recordId }', '{! result.recordType }'); return false" value="Increment Counter"
+                            />
+                        </apex:column>
+                        <apex:facet name="footer"> Total records: {!totalRecords}. Page {!pageNumber} of {!totalPage}</apex:facet>
+                    </apex:dataTable>
+
+                    <!-- Pagination -->
+                    <apex:outputPanel id="paginationButtons" layout="block">
+                        <apex:commandButton action="{!onFirstPage}" title="First" value="<<" disabled="{! pageNumber == 1 }" status="pageStatus"
+                            rerender="results, paginationButtons" />
+                        <apex:commandButton action="{!onPreviousPage}" title="Previous" value="<" disabled="{! pageNumber == 1 }" status="pageStatus"
+                            rerender="results, paginationButtons" />
+                        <apex:commandButton action="{!onNextPage}" title="Next" value=">" disabled="{! pageNumber == totalPage }" status="pageStatus"
+                            rerender="results, paginationButtons" />
+                        <apex:commandButton action="{!onLastPage}" title="Last" value=">>" disabled="{! pageNumber == totalPage }" status="pageStatus"
+                            rerender="results, paginationButtons" />
+                    </apex:outputPanel>
+                </apex:outputPanel>
+
+                <apex:outputPanel rendered="{! results.size == 0 && isClickSearch }" layout="block">
+                    <apex:outputLabel>No record found</apex:outputLabel>
+                </apex:outputPanel>
+            </apex:outputPanel>
+        </apex:pageBlock>
+    </apex:form>
+</apex:page>
