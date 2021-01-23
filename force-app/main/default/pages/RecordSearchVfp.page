@@ -4,29 +4,34 @@
             box-sizing: border-box;
         }
 
-        .tableClass {
+        table {
             font-family: arial, sans-serif;
             border-collapse: collapse;
             width: 100%;
-            border: 2px solid silver;
         }
 
-        .theHead {
-            background-color: teal;
+        td,
+        th {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+            width: 20%
         }
 
-        .even {
-            background-color: silver;
+        tr:nth-child(even) {
+            background-color: #dddddd;
         }
     </style>
 
     <script type="text/javascript">
         function increaseCounter(recordId, recordType) {
+            console.log('@@@ increaseCounter.recordId= ', recordId);
+            console.log('@@@ increaseCounter.recordType= ', recordType);
             Visualforce.remoting.Manager.invokeAction(
                 '{!$RemoteAction.RecordSearchCtrl.increaseCounter}', recordId, recordType,
                 function (result, event) {
-                    console.log('@@@ result= ', result);
-                    console.log('@@@ event= ', event);
+                    console.log('@@@ increaseCounter.result= ', result);
+                    console.log('@@@ increaseCounter.event= ', event);
                     if (event.status) {
                         rerenderResultSearch();
                     }
@@ -73,18 +78,44 @@
                             <apex:selectOptions value="{!availablePageSizes}" />
                         </apex:selectList>
                     </div>
-                    <apex:dataTable value="{!results}" var="result" headerClass="theHead" cellpadding="10px" rowClasses="odd,even" styleClass="tableClass">
-                        <apex:column value="{!result.recordName}" headerValue="Record Name" />
-                        <apex:column value="{!result.recordType}" headerValue="Record Type" />
-                        <apex:column value="{!result.recordCounter}" headerValue="Counter" />
-                        <apex:column headerValue="Click To Open">
-                            <apex:outputLink value="{! '/' + result.recordId }" target="_blank">View</apex:outputLink>
-                        </apex:column>
-                        <apex:column headerValue="Click To Update Counter">
-                            <apex:commandLink onclick="increaseCounter('{! result.recordId }', '{! result.recordType }'); return false" value="Increment Counter"
-                            />
-                        </apex:column>
-                    </apex:dataTable>
+
+                    <!-- Search result table -->
+                    <table>
+                        <tr>
+                            <apex:repeat value="{!tableHeaders}" var="tableHeader">
+                                <th>{!tableHeader}</th>
+                            </apex:repeat>
+                        </tr>
+                        <apex:repeat value="{!results}" var="result">
+                            <tr>
+                                <apex:repeat value="{!result.fieldResults}" var="fieldResult">
+                                    <td>
+                                        <apex:outputPanel rendered="{! fieldResult.fieldName == 'Id' }">
+                                            <apex:outputLink value="{! '/' + fieldResult.fieldValue }" target="_blank">View</apex:outputLink>
+                                        </apex:outputPanel>
+                                        <apex:outputPanel rendered="{! fieldResult.fieldName == 'addCounter' }">
+                                            <apex:outputPanel rendered="{! fieldResult.isUpdateable }">
+                                                <apex:commandLink onclick="increaseCounter('{! result.recordId }', '{! result.recordType }'); return false" value="Increment Counter"
+                                                />
+                                            </apex:outputPanel>
+                                            <apex:outputPanel rendered="{! !fieldResult.isUpdateable }">
+                                                You don't have permission to update
+                                            </apex:outputPanel>
+                                        </apex:outputPanel>
+                                        <apex:outputPanel rendered="{! fieldResult.fieldName != 'Id' && fieldResult.fieldName != 'addCounter' }">
+                                            <apex:outputPanel rendered="{! fieldResult.isAccessible }">
+                                                {!fieldResult.fieldValue}
+                                            </apex:outputPanel>
+                                            <apex:outputPanel rendered="{! !fieldResult.isAccessible }">
+                                                Field is not readable
+                                            </apex:outputPanel>
+
+                                        </apex:outputPanel>
+                                    </td>
+                                </apex:repeat>
+                            </tr>
+                        </apex:repeat>
+                    </table>
 
                     <!-- Pagination -->
                     <apex:outputPanel style="text-align:center" id="paginationButtons" layout="block">
