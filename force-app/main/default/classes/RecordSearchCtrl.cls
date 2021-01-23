@@ -10,6 +10,8 @@ global with sharing class RecordSearchCtrl {
     public Integer pageNumber {get; set;}
     public Integer totalPage {get; set;}
     public List<SelectOption> availablePageSizes {get; private set;}
+    public Set<String> tableHeaders {get; set;}
+    private Map<String, Schema.SObjectType> globalDescribe;
 
     public RecordSearchCtrl() {
         this.searchText = 'united';   // test search term
@@ -27,6 +29,10 @@ global with sharing class RecordSearchCtrl {
             new SelectOption('10', '10'),
             new SelectOption('15', '15')
         };
+        this.tableHeaders = new Set<String>{
+            'Record Name', 'Record Type', 'Click To Open', 'Counter', 'Click To Update Counter'
+        };
+        this.globalDescribe = Schema.getGlobalDescribe();
     }
      
     public PageReference search() {
@@ -43,19 +49,49 @@ global with sharing class RecordSearchCtrl {
         this.results.clear();
         this.offset = 0;
         this.pageNumber = 1;
+        this.totalPage = 0;
         this.isClickSearch = true;
 
         // Search new data
         try {
+            List<String> fields = new List<String> {'Name', 'RecordType', 'Id', 'Counter__c'};
             String searchTerm = String.escapeSingleQuotes(this.searchText) + '*';
             List<List<SObject>> searchList = [FIND :searchTerm IN NAME FIELDS RETURNING Account (Id, Name, Counter__c ORDER BY CreatedDate), Contact (Id, Name, Counter__c ORDER BY CreatedDate)];
+            
             for (List<SObject> sObjects :  searchList) {
                 for (SObject so : sObjects) {
-                    SearchResult sr = new SearchResult();     
+                    String recordType = (String) so.getSObjectType().getDescribe().getName();
+                    SearchResult sr = new SearchResult();   
                     sr.recordId = (String) so.get('Id');
-                    sr.recordName = (String) so.get('Name');
-                    sr.recordType = (String) so.getSObjectType().getDescribe().getName();
-                    sr.recordCounter = so.get('Counter__c') == null  ? 0 : (Decimal) so.get('Counter__c');
+                    sr.recordType = recordType;
+                    Map<String, Schema.SObjectField> sofm = this.globalDescribe.get(recordType).getDescribe().fields.getMap();
+
+                    Boolean showAddCounter = false;
+                    // Build searchResult fields displayed
+                    for (String field : fields) {
+                        FieldResult fr = new FieldResult();
+                        fr.fieldName = field;
+                        if (field == 'RecordType') {
+                            fr.isAccessible = true;
+                            fr.fieldValue = recordType;
+                            sr.fieldResults.add(fr);        
+                        } else {
+                            fr.isAccessible = sofm.get(field).getDescribe().isAccessible();
+                            fr.isUpdateable = sofm.get(field).getDescribe().isUpdateable();
+                            if (fr.isAccessible) {
+                                fr.fieldValue = getFieldValue(so, field, sofm);
+                            }
+                            sr.fieldResults.add(fr);
+                            if (fr.fieldName == 'Counter__c') {
+                                FieldResult cfr = new FieldResult();
+                                cfr.isAccessible = fr.isAccessible;
+                                cfr.isUpdateable = fr.isUpdateable;
+                                cfr.fieldName = 'addCounter';
+                                cfr.fieldValue = 'Increment Counter';
+                                sr.fieldResults.add(cfr);
+                            }
+                        }
+                    }
                     this.totalResults.add(sr);
                 }
             }
@@ -79,6 +115,17 @@ global with sharing class RecordSearchCtrl {
             this.results.add(this.totalResults[i]);
         }
         return null;
+    }
+
+    private String getFieldValue(sObject so, String field,  Map<String, Schema.SObjectField> sofm) {
+        String returnVal = null;
+        Schema.DisplayType displayType = sofm.get(field).getDescribe().getType();
+        if (displayType == Schema.DisplayType.INTEGER || displayType == Schema.DisplayType.LONG || displayType == Schema.DisplayType.DOUBLE) {
+            returnVal = so.get(field) == null ? '0' : String.valueOf(so.get(field));
+        } else {
+            returnVal = so.get(field) == null ? null : (String) so.get(field);
+        }
+        return returnVal;
     }
 
     public Pagereference onFirstPage() {
@@ -138,14 +185,25 @@ global with sharing class RecordSearchCtrl {
     
     class SearchResult {
         public String recordId {get; set;}
-        public String recordName {get; set;}
         public String recordType {get; set;}
-        public Decimal recordCounter {get; set;}
+        public List<FieldResult> fieldResults {get; set;}
         SearchResult() {
             this.recordId = null;
-            this.recordName = null;
             this.recordType = null;
-            this.recordCounter = null;
+            this.fieldResults = new List<FieldResult>();
+        }
+    }
+
+    class FieldResult {
+        public Boolean isAccessible {get; set;}
+        public Boolean isUpdateable {get; set;}
+        public String fieldName {get; set;}
+        public String fieldValue {get; set;}
+        FieldResult() {
+            this.isAccessible = false;
+            this.isUpdateable = false;
+            this.fieldName = null;
+            this.fieldValue = null;
         }
     }
 }
