@@ -39,7 +39,7 @@
     <apex:form>
         <apex:pageBlock mode="edit" id="block">
             <apex:outputPanel>
-                <apex:outputLabel for="searchText">Search Text</apex:outputLabel>
+                <apex:outputLabel for="searchText">Search Text &nbsp;</apex:outputLabel>
                 <apex:panelGroup>
                     <apex:inputText id="searchText" value="{!searchText}" />
                     <apex:commandButton value="Search" action="{!search}" status="pageStatus" rerender="errors, results" />
@@ -65,6 +65,14 @@
             <apex:outputPanel title="Results" id="results">
                 <apex:actionFunction action="{!search}" name="rerenderResultSearch" rerender="results" />
                 <apex:outputPanel rendered="{! results.size > 0 }">
+                    <div>
+                        <apex:outputLabel for="pageSizeSelect">Select Page Size &nbsp;</apex:outputLabel>
+                        <apex:selectList id="pageSizeSelect" size="1" value="{!selectedPageSize}">
+                            <apex:actionSupport event="onchange" action="{!onChangePageSize}" status="pageStatus" rerender="results, paginationButtons"
+                            />
+                            <apex:selectOptions value="{!availablePageSizes}" />
+                        </apex:selectList>
+                    </div>
                     <apex:dataTable value="{!results}" var="result" headerClass="theHead" cellpadding="10px" rowClasses="odd,even" styleClass="tableClass">
                         <apex:column value="{!result.recordName}" headerValue="Record Name" />
                         <apex:column value="{!result.recordType}" headerValue="Record Type" />
@@ -76,11 +84,11 @@
                             <apex:commandLink onclick="increaseCounter('{! result.recordId }', '{! result.recordType }'); return false" value="Increment Counter"
                             />
                         </apex:column>
-                        <apex:facet name="footer"> Total records: {!totalRecords}. Page {!pageNumber} of {!totalPage}</apex:facet>
                     </apex:dataTable>
 
                     <!-- Pagination -->
-                    <apex:outputPanel id="paginationButtons" layout="block">
+                    <apex:outputPanel style="text-align:center" id="paginationButtons" layout="block">
+                        <div style="margin: 1rem auto"> Total records: {!totalRecords}. Page {!pageNumber} of {!totalPage} </div>
                         <apex:commandButton action="{!onFirstPage}" title="First" value="<<" disabled="{! pageNumber == 1 }" status="pageStatus"
                             rerender="results, paginationButtons" />
                         <apex:commandButton action="{!onPreviousPage}" title="Previous" value="<" disabled="{! pageNumber == 1 }" status="pageStatus"

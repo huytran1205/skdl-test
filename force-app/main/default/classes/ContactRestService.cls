@@ -8,38 +8,46 @@ global with sharing class ContactRestService {
 
         try {
             List<Object> inputRecords = (List<Object>)JSON.deserializeUntyped(request.requestbody.tostring());
-            //Integer var1 = 1/0;
-            System.debug('@@@ inputRecords= ' + inputRecords);
+            if (inputRecords.isEmpty()) {
+                response.statusCode = 200;
+                ResponseBody content = new ResponseBody(true, 'No record to update');
+                response.responseBody = Blob.valueOf(JSON.serialize(content));
+                return;
+            }
 
+            List<ApiResult> apiResults = new List<ApiResult>();
             List<Contact> contactToUpdates = new List<Contact>();
             for (Object inputRecord : inputRecords) {
                 Map<String, Object> params = (Map<String, Object>) inputRecord;
                 Contact ct = new Contact();
-                for (String fieldName : params.keySet()) {
-                    ct.put(fieldName, params.get(fieldName));
+                try {
+                    for (String fieldName : params.keySet()) {
+                        ct.put(fieldName, params.get(fieldName));
+                    }
+                    contactToUpdates.add(ct);
+                } catch (Exception ex) {
+                    ApiResult result = new ApiResult(false, ex.getMessage(), ct.get('Id') == null ? null : (String) ct.get('Id'));
+                    apiResults.add(result);
                 }
-                contactToUpdates.add(ct);
             }
-            System.debug('@@@ contactToUpdates= ' + contactToUpdates);
 
             if (!contactToUpdates.isEmpty()) {
                 SObjectAccessDecision securityDecision = Security.stripInaccessible(AccessType.UPDATABLE, contactToUpdates);
                 List<Database.SaveResult> updateResults = Database.update(securityDecision.getRecords(), false);
-                List<DmlRecordResult> dmlRecordResults = new List<DmlRecordResult>();
                 for (Database.SaveResult updateResult : updateResults) {
-                    DmlRecordResult result;
+                    ApiResult result;
                     if (updateResult.isSuccess()) {
-                        result = new DmlRecordResult(true, 'Update successfully', updateResult.getId());
+                        result = new ApiResult(true, 'Update successfully', updateResult.getId());
                     } else {
-                        result = new DmlRecordResult(false, handleErrors(updateResult.getErrors()), updateResult.getId());
+                        result = new ApiResult(false, handleErrors(updateResult.getErrors()), updateResult.getId());
                     }
-                    dmlRecordResults.add(result);
+                    apiResults.add(result);
                 }
-                response.statusCode = 200;
-                ResponseBody content = new ResponseBody(true, null);
-                content.records = dmlRecordResults;
-                response.responseBody = Blob.valueOf(JSON.serialize(content));
             }
+            response.statusCode = 200;
+            ResponseBody content = new ResponseBody(true, null);
+            content.records = apiResults;
+            response.responseBody = Blob.valueOf(JSON.serialize(content));
 
         } catch (Exception ex) {
             response.statusCode = 500;
@@ -59,19 +67,19 @@ global with sharing class ContactRestService {
     class ResponseBody {
         Boolean isSuccess;
         String message;
-        List<DmlRecordResult> records;
+        List<ApiResult> records;
         public ResponseBody(Boolean isSuccess, String message) {
             this.isSuccess = isSuccess;
             this.message = message;
-            this.records = new List<DmlRecordResult>();
+            this.records = new List<ApiResult>();
         }
     }
 
-    class DmlRecordResult {
+    class ApiResult {
         Boolean isSuccess;
         String message;
         String sObjectId;
-        public DmlRecordResult(Boolean isSuccess, String message, String sObjectId) {
+        public ApiResult(Boolean isSuccess, String message, String sObjectId) {
             this.isSuccess = isSuccess;
             this.message = message;
             this.sObjectId = sObjectId;

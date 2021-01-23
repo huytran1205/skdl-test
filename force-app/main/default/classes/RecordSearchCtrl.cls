@@ -4,10 +4,12 @@ global with sharing class RecordSearchCtrl {
     private List<SearchResult> totalResults;
     public Boolean isClickSearch {get; set;}
     private Integer pageSize;
+    public String selectedPageSize {get; set;} 
     private Integer offset;
     public Integer totalRecords {get; set;}
     public Integer pageNumber {get; set;}
     public Integer totalPage {get; set;}
+    public List<SelectOption> availablePageSizes {get; private set;}
 
     public RecordSearchCtrl() {
         this.searchText = 'united';   // test search term
@@ -15,10 +17,16 @@ global with sharing class RecordSearchCtrl {
         this.totalResults = new List<SearchResult>();
         this.isClickSearch = false;
         this.pageSize = 5;
+        this.selectedPageSize = '5';
         this.offset = 0;
         this.totalRecords = 0;
         this.pageNumber = 1;
         this.totalPage = 0;
+        this.availablePageSizes = new List<SelectOption>{
+            new SelectOption('5', '5'),
+            new SelectOption('10', '10'),
+            new SelectOption('15', '15')
+        };
     }
      
     public PageReference search() {
@@ -95,6 +103,11 @@ global with sharing class RecordSearchCtrl {
         this.pageNumber = this.totalPage;
         this.offset = this.totalRecords - (Math.mod(this.totalRecords, this.pageSize));
         return this.buildDisplayRecords();
+    }
+
+    public Pagereference onChangePageSize() {
+        this.pageSize = Integer.valueOf(this.selectedPageSize);
+        return search();
     }
 
     @RemoteAction 
